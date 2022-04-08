@@ -17,8 +17,14 @@
     <title>DVF Navigator</title>
     <style>
       .map {
-        height: 400px;
-        width: 100%;
+        height: 500px;
+        width: 50%;
+        float: left;
+      }
+      .chart {
+        height: 500px;
+        width: 50%;
+        float: right;
       }
     </style>
   </head>
@@ -27,6 +33,7 @@
 
     <div id="slider-simple"></div>
     <div id="map" class="map"></div>
+    <div id="chart" class="chart"></div>
     <p>Ce qui est représenté:</p>
     <ul>
       <li>Les parcelles en rouges sont celles dont la date de vente est située 1 mois autour de la date choisie</li>
@@ -68,11 +75,16 @@
           const fp = feature.getProperties();
           if (fp.id in dvf) {
             const m = dvf[fp.id]
+
+            return new ol.style.Style ({
+              fill: new ol.style.Fill({ color: getColorFromDate(date,m)}),
+              stroke: new ol.style.Stroke({color: '#40800080', width: 1}),
+            });
             // écart en nombre de jour entre la date de la transaction et la date choisie avec le slider
             const d = Math.abs(date-m.datemut) / (1000*60*60*24);
             return (d < 30) ? selected_style : unselected_style;
           }
-          return non_dvf_style;
+//          return non_dvf_style;
         },
       })
 
@@ -128,8 +140,89 @@
         complete: function() {
           console.log("All done, loaded", nb_mutations, " mutations");
           couchePBF.changed();
+          drawChart();
         }
       });
+
+      var svg;
+      function drawChart() {
+        // set the dimensions and margins of the graph
+        var margin = {top: 10, right: 30, bottom: 30, left: 60},
+          width = 600 - margin.left - margin.right,
+          height = 500 - margin.top - margin.bottom;
+
+        // append the svg object to the body of the page
+        svg = d3.select("#chart")
+          .append("svg")
+            .attr("width",  width  + margin.left + margin.right)
+            .attr("height", height + margin.top  + margin.bottom)
+          .append("g")
+            .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+        // Add X axis
+        var x = d3.scaleLinear()
+          .domain([0, 300])
+          .range([ 0, width ]);
+        svg.append("g")
+          .attr("transform", "translate(0," + height + ")")
+          .call(d3.axisBottom(x));
+
+        // Add Y axis
+        var y = d3.scaleLinear()
+          .domain([0, 1000000])
+          .range([ height, 0]);
+        svg.append("g")
+          .call(d3.axisLeft(y));
+        var div = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
+        // Add dots
+        svg.append('g')
+          .selectAll("dot")
+          .data(Object.values(dvf))
+          .enter()
+          .append("circle")
+            .attr("cx", function (d) { return x(d.sbatmai); } )
+            .attr("cy", function (d) { return y(d.valeurfonc); } )
+            .attr("r", function (d) { return 1+d.sterr/1000; } )
+            .style("fill", "grey")
+            .style("opacity", "50%")
+            .on("mouseover", function(d) {
+            div.transition()
+              .duration(200)
+              .style("opacity", .9);
+            div.html(d3.timeFormat("%Y-%m-%d")(d.datemut) + "<br/>" + d.l_idpar)
+              .style("left", (d3.event.pageX) + "px")
+              .style("top", (d3.event.pageY - 28) + "px");
+            })
+            .on("mouseout", function(d) {
+              div.transition()
+                .duration(500)
+                .style("opacity", 0);
+              });
+
+            console.log ("ENDED")
+
+      }
+
+      const myColor = d3.scaleLinear().domain([0,45,365]).range(["#FF3050", "#FF3050", "#A0A0A0"])
+      console.log (myColor(0), myColor(100),myColor(365),myColor(44.650),myColor(1000))
+      function getColorFromDate (date, d) {
+        let diff = Math.abs(date-d.datemut) / (1000*60*60*24); 
+        return (diff < 365) ? myColor(diff) : "#A0A0A060"
+      }
+
+      function updateChart (date) {
+        svg.selectAll("circle")
+            .transition()
+            .ease(d3.easeLinear)
+            .duration(100)
+            .style("opacity", function (d) { return 1 - Math.min(0.9, Math.abs(date-d.datemut) / (1000*60*60*24*365))})
+            .style("fill", function (d) {
+              return getColorFromDate(date, d)
+            })
+      }
 
       /* Slider permettant de choisir une date */
       var sliderSimple = d3
@@ -143,6 +236,7 @@
         .on('onchange', val => {
             date = val;
             couchePBF.changed();
+            updateChart(val);
         });
 
       var gSimple = d3

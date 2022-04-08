@@ -6,7 +6,7 @@ Visualisation des Demandes de Valeur Foncière (https://app.dvf.etalab.gouv.fr/)
 
 L'objectif est de présenter l'évolutions des ventes de maisons au fil du temps afin de suivre leur évolution et ainsi percevoir l'évolution des prix sur une zone géographique choisie. La visualisation se fait sur une carte et également de manière graphique (à venir). La carte permet de situer les parcelles vendues et voir si certaines zones sont plus dynamiques que d'autres. La vue graphique doit permettre de voir la correlation entre la superficie du bien vendu et son prix de vente.
 
-Actuellement (avril 2022) seule la vue cartographique est implémentée et la visualisation est limité à la seule ville de Thouaré sur Loire.
+Actuellement (avril 2022) la visualisation est limité à la seule ville de Thouaré sur Loire.
 
 Si vous êtes interessé, je vous invite à suivre le projet car je vais effectuer plusieurs évolutions dans les jours et semaines à venir.
 
