@@ -28,13 +28,12 @@
     <div id="slider-simple"></div>
     <div id="map" class="map"></div>
     <p>Ce qui est représenté:</p>
-    <ul>
-      <li>Les parcelles en rouges sont celles dont la date de vente est située 1 mois autour de la date choisie</li>
-      <li>Seules les ventes de maisons sont prises en compte</li>
-      <li>les <a href="https://fr.wikipedia.org/wiki/Vente_en_l%27%C3%A9tat_futur_d%27ach%C3%A8vement">VEFA</a> sont exclues</li>
-      <li>Lorsqu'une mutuation concerne plusieurs parcelles, seule la première parcelle est prise en compte</li>
-      <li>Si plusieurs mutations successives ont eu lieu sur une même parcelle, seule la dernière lue est conservée</li>
-    </ul>
+    <li>
+      <ul>Seules les ventes de maisons sont prises en compte</ul>
+      <ul>les <a href="https://fr.wikipedia.org/wiki/Vente_en_l%27%C3%A9tat_futur_d%27ach%C3%A8vement">VEFA</a> sont exclues</ul>
+      <ul>Lorsqu'une mutuation concerne plusieurs parcelles, seule la première parcelle est prise en compte</ul>
+      <ul>Si plusieurs mutations successives ont eu lieu sur une même parcelle, seule la dernière lue est conservée</ul>
+    </li>
 
     <script type="text/javascript">
 
@@ -110,7 +109,7 @@
       let nb_mutations = 1;
       let nb_maisons = 1;
       parseDate = d3.timeParse("%Y-%m-%d")
-      Papa.parse("mutations_d44_thouare.csv", {
+      Papa.parse("/csv/R52_Pays_de_la_Loire/mutations_d44_thouare.csv", {
         download: true,
         header: true,
         dynamicTyping: true,
