@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+
+    <!-- Openlayers library -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.14.1/css/ol.css" type="text/css">
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.14.1/build/ol.js"></script>
+    
+    <!-- CSV Parsing, for parsing DVF plus data -->
+    <script src="https://unpkg.com/papaparse@latest/papaparse.min.js"></script>
+
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="https://unpkg.com/d3-simple-slider"></script>
+
+    <title>DVF Navigator</title>
+    <style>
+      .map {
+        height: 400px;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>DVF Thouaré sur Loire</h2>
+
+    <div id="slider-simple"></div>
+    <div id="map" class="map"></div>
+    <p>Ce qui est représenté:</p>
+    <li>
+      <ul>Seules les ventes de maisons sont prises en compte</ul>
+      <ul>les <a href="https://fr.wikipedia.org/wiki/Vente_en_l%27%C3%A9tat_futur_d%27ach%C3%A8vement">VEFA</a> sont exclues</ul>
+      <ul>Lorsqu'une mutuation concerne plusieurs parcelles, seule la première parcelle est prise en compte</ul>
+      <ul>Si plusieurs mutations successives ont eu lieu sur une même parcelle, seule la dernière lue est conservée</ul>
+    </li>
+
+    <script type="text/javascript">
+
+      /* Styles utilisés pour représenter les parcelles cadastrales :
+        - non_dvf_style : la parcelle ne fait l'objet d'aucune transaction dans le fichier DVF
+        - selected_style : la parcelle fait l'objet d'une transaction autour de la date sélectionnée
+        - unselected_style : la parcelle fait l'objet d'une transaction, mais éloignée de la date selectionnée
+      */
+      const non_dvf_style = new ol.style.Style ({
+          stroke: new ol.style.Stroke({color: '#40404010', width: 1}),
+      });
+
+      const selected_style = new ol.style.Style ({
+          fill: new ol.style.Fill({ color:'#FF3050'}),
+          stroke: new ol.style.Stroke({color: '#40800080', width: 1}),
+      });
+
+      const unselected_style = new ol.style.Style ({
+          fill: new ol.style.Fill({ color:'#55555555'}),
+          stroke: new ol.style.Stroke({color: '#40800080', width: 1}),
+      });
+
+      /* Couche cartographique représente les parcelles cadastrales */
+      var date = new Date(2016, 10, 3);
+      var couchePBF = new ol.layer.VectorTile({
+        source: new ol.source.VectorTile({
+          format: new ol.format.MVT(),
+          url: ' https://openmaptiles.geo.data.gouv.fr/data/cadastre/{z}/{x}/{y}.pbf',
+        }),
+        style: function (feature) {
+          const fp = feature.getProperties();
+          if (fp.id in dvf) {
+            const m = dvf[fp.id]
+            // écart en nombre de jour entre la date de la transaction et la date choisie avec le slider
+            const d = Math.abs(date-m.datemut) / (1000*60*60*24);
+            return (d < 30) ? selected_style : unselected_style;
+          }
+          return non_dvf_style;
+        },
+      })
+
+      /* Carte avec deux couches :
+       - Fond cartographique openstreetmap
+       - Représentation des parcelles cadastrales
+      */
+      var map = new ol.Map({
+        target: 'map',
+        layers: [
+          // Fond Openstreetmap
+          new ol.layer.Tile({
+            source: new ol.source.OSM()
+          }),
+
+          // Parcelles cadastrales
+          couchePBF
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([-1.4479330272437174,47.27427703135524]),
+          zoom: 15
+        })
+      });
+
+      /* Récupération des données DVF.
+        Les données sont placées dans le dictionnaire "dvf" dont la clef est l'id de parcelle
+
+        Limitation actuelles :
+        - Seules les maisons sont prises en compte
+        - Lorsqu'une mutuation concerne plusieurs parcelles, seule la première parcelle est prise en compte
+        - les VEFA sont exclues
+        - Si plusieurs mutations ont eu lieu sur une même parcelle, seule la dernière lue est conservée
+      */
+      var dvf = {}  // Dictionnaire des mutations, clef = id parcelle
+      let nb_mutations = 1;
+      let nb_maisons = 1;
+      parseDate = d3.timeParse("%Y-%m-%d")
+      Papa.parse("/csv/R52_Pays_de_la_Loire/mutations_d44_thouare.csv", {
+        download: true,
+        header: true,
+        dynamicTyping: true,
+        step: function(row) {
+          if ((row.data.nblocmai > 0) && (row.data.vefa != "True")) {
+            // Convert from string to js types
+            row.data.datemut = parseDate(row.data.datemut)
+            row.data.l_idpar = JSON.parse(row.data.l_idpar.replaceAll("'",'"'))
+
+            nb_mutations += 1;
+            nb_maisons += row.data.nblocmai;
+            dvf[row.data.l_idpar[0]] = row.data;
+          }
+        },
+        complete: function() {
+          console.log("All done, loaded", nb_mutations, " mutations");
+          couchePBF.changed();
+        }
+      });
+
+      /* Slider permettant de choisir une date */
+      var sliderSimple = d3
+        .sliderBottom()
+        .min(new Date(2011, 7, 1))
+        .max(new Date(2021, 7, 1))
+        .tickFormat(d3.timeFormat('%Y'))
+        .default(new Date(2016, 10, 3))
+        .width(300)
+        .ticks(10)
+        .on('onchange', val => {
+            date = val;
+            couchePBF.changed();
+        });
+
+      var gSimple = d3
+      .select('div#slider-simple')
+      .append('svg')
+      .attr('width', 500)
+      .attr('height', 100)
+      .append('g')
+      .attr('transform', 'translate(30,30)');
+
+      gSimple.call(sliderSimple);
+    </script>
+  </body>
+</html>
