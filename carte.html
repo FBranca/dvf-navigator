@@ -4,8 +4,8 @@
     <meta charset="utf-8">
 
     <!-- Openlayers library -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.14.1/css/ol.css" type="text/css">
-    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.14.1/build/ol.js"></script>
+    <link rel="stylesheet" href="libs/openlayers/v6.14.1/ol.css" type="text/css">
+    <script src="libs/openlayers/v6.14.1/ol.js"></script>
     
     <!-- CSV Parsing, for parsing DVF plus data -->
     <script src="https://unpkg.com/papaparse@latest/papaparse.min.js"></script>
@@ -55,14 +55,17 @@
       });
 
       const selected_style = new ol.style.Style ({
-          fill: new ol.style.Fill({ color:'#FF3050'}),
-          stroke: new ol.style.Stroke({color: '#40800080', width: 1}),
+          fill: new ol.style.Fill({ color:'#3050FF90'}),
+          stroke: new ol.style.Stroke({color: '#408000', width: 2}),
       });
 
       const unselected_style = new ol.style.Style ({
           fill: new ol.style.Fill({ color:'#55555555'}),
           stroke: new ol.style.Stroke({color: '#40800080', width: 1}),
       });
+
+      let selected = null;
+      let selected_id = null;
 
       /* Couche cartographique représente les parcelles cadastrales */
       var date = new Date(2016, 10, 3);
@@ -76,6 +79,9 @@
           if (fp.id in dvf) {
             const m = dvf[fp.id]
 
+            if (feature == selected) {
+              return selected_style;
+            }
             return new ol.style.Style ({
               fill: new ol.style.Fill({ color: getColorFromDate(date,m)}),
               stroke: new ol.style.Stroke({color: '#40800080', width: 1}),
@@ -84,7 +90,8 @@
             const d = Math.abs(date-m.datemut) / (1000*60*60*24);
             return (d < 30) ? selected_style : unselected_style;
           }
-//          return non_dvf_style;
+          // Pas de retour : l'élément n'est pas rendu
+          // return non_dvf_style;
         },
       })
 
@@ -107,6 +114,21 @@
           center: ol.proj.fromLonLat([-1.4479330272437174,47.27427703135524]),
           zoom: 15
         })
+      });
+
+      map.on('pointermove', function (e) {
+        const previous = selected;
+        selected = null;
+        map.forEachFeatureAtPixel(e.pixel, function (f) {
+          selected = (f.getProperties().id in dvf) ? f : null;
+          return true;
+        });
+
+        if (selected != previous) {
+          selected_id = selected ? selected.getProperties().id : null
+          couchePBF.changed();
+          updateChart();
+        }
       });
 
       /* Récupération des données DVF.
@@ -185,7 +207,7 @@
           .append("circle")
             .attr("cx", function (d) { return x(d.sbatmai); } )
             .attr("cy", function (d) { return y(d.valeurfonc); } )
-            .attr("r", function (d) { return 1+d.sterr/1000; } )
+            .attr("r", function (d) { return 2+d.sterr/1000; } )
             .style("fill", "grey")
             .style("opacity", "50%")
             .on("mouseover", function(d) {
@@ -219,6 +241,10 @@
             .ease(d3.easeLinear)
             .duration(100)
             .style("opacity", function (d) { return 1 - Math.min(0.9, Math.abs(date-d.datemut) / (1000*60*60*24*365))})
+            .style("stroke", "blue")
+            .style("stroke-width", function (d) {
+              return  (d.l_idpar[0] == selected_id) ? "3" : "0"
+            })
             .style("fill", function (d) {
               return getColorFromDate(date, d)
             })
